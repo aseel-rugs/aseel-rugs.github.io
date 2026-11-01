@@ -88,10 +88,10 @@ function signIn(msg){
 }
 function load(){
   var t=tok();if(!t){signIn();return}
-  box.innerHTML='<div class="dbc dbmsg">Loading…</div>';
+  var cd=null;try{cd=localStorage.getItem('aseel_data')}catch(e){}if(cd){try{render(JSON.parse(cd))}catch(e){}}else box.innerHTML='<div class="dbc dbmsg">Loading…</div>';
   fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({idToken:t,fn:'getData',args:[]})})
    .then(function(r){return r.json()})
-   .then(function(d){if(!d.ok){if(/sign in|sign-in|No access/i.test(d.error)){try{localStorage.removeItem('aseel_tok')}catch(e){}signIn(d.error)}else box.innerHTML='<div class="dbc dbmsg">'+esc(d.error)+'</div>';return}render(JSON.parse(d.result))})
+   .then(function(d){if(!d.ok){if(/sign in|sign-in|No access/i.test(d.error)){try{localStorage.removeItem('aseel_tok')}catch(e){}signIn(d.error)}else box.innerHTML='<div class="dbc dbmsg">'+esc(d.error)+'</div>';return}try{localStorage.setItem('aseel_data',d.result)}catch(e){}render(JSON.parse(d.result))})
    .catch(function(e){box.innerHTML='<div class="dbc dbmsg">Could not reach the app: '+esc(e.message)+'</div>'});
 }
 function alertsHtml(D){
