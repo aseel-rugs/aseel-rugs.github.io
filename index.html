@@ -59,6 +59,11 @@ a.dbk:hover{border-color:var(--gold)}
 .tl .d{font-size:12px;color:var(--muted);line-height:1.35}
 .bd{position:absolute;top:10px;right:10px;display:none;background:var(--olive);color:var(--ivory);font-size:11px;line-height:1;border-radius:99px;padding:4px 8px}.bd.on{display:block}.bd.warn{background:#8A6F5A}
 @media(max-width:760px){.tg{grid-template-columns:repeat(2,1fr)}.tl{min-height:108px}}
+.dbhero{margin-bottom:10px;background:var(--olive);border-color:var(--olive);color:var(--ivory)}.dbhero .l{color:var(--line);font-size:11px;letter-spacing:.12em;text-transform:uppercase}.dbhero .hrow{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}.dbhero .v{font-family:Marcellus,Georgia,serif;font-size:26px}.dbhero .s{color:var(--line);font-size:12px}.hb{height:6px;border-radius:6px;background:rgba(242,236,224,.2);margin:10px 0 6px;overflow:hidden}.hb i{display:block;height:100%;background:var(--gold)}
+.dbk.wk{border-color:#C9A27A}.dbk.wk .s{color:#8A4B2E}
+a.dbch{display:block;text-decoration:none;color:var(--ink)}a.dbch:hover,a.dbsp:hover{border-color:var(--gold)}
+.dbsp{margin-top:10px;text-decoration:none;color:var(--ink)}.dbsp .l{color:var(--muted);font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}.sr{display:grid;grid-template-columns:minmax(120px,1.2fr) 2fr auto;gap:10px;align-items:center;font-size:13px;padding:4px 0}.sr i{display:block;height:8px;border-radius:4px;background:var(--gold);min-width:2px}.sr b{font-weight:500;font-variant-numeric:tabular-nums}
+.dbre{margin-top:10px}.dbre a{display:flex;justify-content:space-between;gap:10px}.dbre em{font-style:normal;color:var(--muted);font-size:12px;white-space:nowrap}
 </style>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
@@ -112,38 +117,67 @@ function alertsHtml(D){
   var C=D.calc,t=new Date(D.today),out=[];function days(d){return Math.floor((t-new Date(d))/864e5)}
   D.production.forEach(function(x){if((x.Status==='Ordered'||x.Status==='Weaving')&&x.DueDate&&x.DueDate<D.today)out.push(['prod','Weaver order '+x.ID+(x.Weaver?' ('+x.Weaver+')':'')+' is '+days(x.DueDate)+' day(s) late'])});
   D.orders.forEach(function(o){var c=C.orders[o.ID];if(o.Status==='Quote'||o.Status==='Cancelled'||c.balance<=0.5)return;var d=days(o.DeliveryDate||o.Date);if(d>30)out.push(['orders',o.Customer+' owes '+money(c.balance)+' on '+o.ID+' ('+d+' days)'])});
-  C.materials.forEach(function(m){if(m.low)out.push(['stock',m.name+' is low: '+f(m.onHand)+' '+m.unit+' left'])});
+  C.materials.forEach(function(m){if(m.low&&m.inQty>0)out.push(['stock',m.name+' is low: '+f(m.onHand)+' '+m.unit+' left'])});
   if(!out.length)return '';
   return '<div class="dbc dbal"><div class="l">Needs attention \u00b7 '+out.length+'</div>'+out.slice(0,10).map(function(a){return '<a href="app.html#'+a[0]+'">'+esc(a[1])+'</a>'}).join('')+'</div>';
 }
 function render(D){
-  var C=D.calc,m=D.today.slice(0,7),i=C.months.indexOf(m);if(i<0)i=m<C.months[0]?-1:35;
-  function row(l){return C.pl.filter(function(r){return r.label===l})[0]}
-  function sumTo(a,k){var s=0;for(var j=0;j<=k&&j<a.length;j++)s+=n(a[j]);return s}
-  var rev=row('Revenue'),net=row('Operating profit (EBITDA)');
+  var C=D.calc,S=D.settings||{},m=D.today.slice(0,7),i=C.months.indexOf(m);if(i<0)i=m<C.months[0]?-1:35;var ci=Math.max(0,i);
+  function row(l){return C.pl.filter(function(r){return r.label===l})[0]||{a:[],b:[]}}
+  function sumTo(a,k){var s=0;for(var j=0;j<=k&&j<(a||[]).length;j++)s+=n(a[j]);return s}
+  function at(a,k){return n((a||[])[k])}
+  function k(l,v,s,href,w){return '<a class="dbc dbk'+(w?' wk':'')+'" href="app.html#'+href+'"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="s">'+esc(s||'')+'</div></a>'}
+  function fd(d){return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
+  var today=new Date(D.today),h='';
   var open=D.orders.filter(function(o){return ['Confirmed','In production','Ready'].indexOf(o.Status)>=0});
-  var owe=D.orders.reduce(function(s,o){return s+Math.max(0,C.orders[o.ID].balance)},0);
-  var withW=D.production.filter(function(p){return p.Status==='Ordered'||p.Status==='Weaving'}).length;
-  var cash=Object.keys(C.balances).reduce(function(s,k){return s+C.balances[k]},0);
-  var low=C.materials.filter(function(x){return x.low});
-  var sv=C.materials.reduce(function(s,x){return s+Math.max(0,x.value)},0);
-  var ya=i<0?0:sumTo(rev.a,i),yb=i<0?0:sumTo(rev.b,i);
-  function k(l,v,s,href){return '<a class="dbc dbk" href="app.html#'+href+'"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="s">'+esc(s||'')+'</div></a>'}
-  var h=alertsHtml(D)+'<div class="dbg">'+
-   k('Sales this month',money(i<0?0:rev.a[i]),'Budget '+money(i<0?0:rev.b[i]),'pl')+
-   k('Sales year to date',money(ya),yb?('vs budget '+pct(ya/yb-1)):'No budget yet','pl')+
-   k('Profit year to date',money(i<0?0:sumTo(net.a,i)),'Budget '+money(i<0?0:sumTo(net.b,i)),'pl')+
-   k('Cash on hand',money(cash),Object.keys(C.balances).map(function(x){return x.split(' ')[0]+' '+money(C.balances[x])}).join(' · '),'cash')+
-   k('Open orders',open.length,money(open.reduce(function(s,o){return s+C.orders[o.ID].net},0))+' value','orders')+
-   k('Customers owe',money(owe),'unpaid balances','orders')+
-   k('With weavers',withW,'ordered or weaving','prod')+
-   k('Owed to weavers',money(C.weaverOwed),'quotes not yet paid','prod')+
-   k('Stock value',money(sv),low.length?(low.length+' item(s) low'):'All above reorder level','stock')+'</div>';
-  var tot=0,parts=D.lists.channels.map(function(c){var v=i<0?0:sumTo(row(c).a,i);tot+=v;return v});
-  h+='<div class="dbc dbch"><div class="l">Sales by channel · year to date</div><div class="bar">'+parts.map(function(v,j){return '<i style="width:'+(tot?v/tot*100:0)+'%;background:'+CH[j]+'"></i>'}).join('')+'</div><div class="lg">'+D.lists.channels.map(function(c,j){return '<span><b style="background:'+CH[j]+'"></b>'+esc(c)+' '+money(parts[j])+'</span>'}).join('')+'</div></div>';
-  h+='<div class="dbcap">All amounts in '+esc(D.settings&&D.settings.Currency||'EGP')+' · updated '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})+' · <a href="#" id="dbr">Refresh</a></div>';
+  var low=C.materials.filter(function(x){return x.low&&x.inQty>0});
+  var cash=Object.keys(C.balances).reduce(function(s,x){return s+C.balances[x]},0);
+  var tbc=['OpeningBank','OpeningCash','OpeningInstaPay'].some(function(x){return String(S[x]==null?'':S[x]).trim()===''||/tbc/i.test(String(S[x]))});
+  /* launch countdown */
+  if(S.LaunchDate){var L=new Date(String(S.LaunchDate).slice(0,10)),st=new Date(String(S.StartMonth||D.today.slice(0,7))+'-01'),days=Math.ceil((L-today)/864e5),pc=Math.max(0,Math.min(100,(today-st)/(L-st)*100));
+    h+='<div class="dbc dbhero"><div class="l">'+(days>0?'Commercial launch':'Launched')+'</div><div class="hrow"><div class="v">'+(days>0?days+' days to go':Math.abs(days)+' days since launch')+'</div><div class="s">'+fd(L)+'</div></div>'+(days>0?'<div class="hb"><i style="width:'+pc.toFixed(0)+'%"></i></div><div class="s">Preparation and first production</div>':'')+'</div>'}
+  /* to do */
+  var T=[];
+  if(tbc)T.push(['cash','Opening Bank, Cash and InstaPay balances are still to be confirmed (Gamal)']);
+  var lines=D.production.filter(function(p){return n(p.SizeM2)>0&&p.Status!=='Cancelled'});
+  var nq=lines.filter(function(p){return p.Status==='Quote requested'}).length;if(nq)T.push(['prod',nq+' weaver line(s) waiting for the factory quote']);
+  var np=lines.filter(function(p){return (p.Status==='Ordered'||p.Status==='Weaving')&&!(n(p.LabourCost)>0)}).length;if(np)T.push(['prod',np+' sample(s) ordered without an agreed price']);
+  var adv=0;Object.keys(C.jobs).forEach(function(id){var j=C.jobs[id];if(j.owed<-0.5)adv+=-j.owed});if(adv)T.push(['prod','EGP '+money(adv)+' paid to weavers in advance, not yet matched to a quote']);
+  var nr=D.cash.filter(function(c){return c.Direction==='Out'&&!c.Attachment}).length;if(nr)T.push(['cash',nr+' payment(s) without a receipt attached']);
+  var na=D.cash.filter(function(c){return /APPROXIMATE/i.test(c.Description||'')}).length;if(na)T.push(['cash',na+' amount(s) are estimates – confirm with the receipt']);
+  D.production.forEach(function(x){if((x.Status==='Ordered'||x.Status==='Weaving')&&x.DueDate&&x.DueDate<D.today)T.push(['prod','Weaver order '+x.ID+' ('+x.Design+') is '+Math.floor((today-new Date(x.DueDate))/864e5)+' day(s) late'])});
+  D.orders.forEach(function(o){var c=C.orders[o.ID];if(o.Status==='Quote'||o.Status==='Cancelled'||c.balance<=0.5)return;var d=Math.floor((today-new Date(o.DeliveryDate||o.Date))/864e5);if(d>30)T.push(['orders',o.Customer+' owes '+money(c.balance)+' on '+o.ID+' ('+d+' days)'])});
+  low.forEach(function(x){T.push(['stock',x.name+' is low: '+f(x.onHand)+' '+x.unit+' left'])});
+  if(T.length)h+='<div class="dbc dbal"><div class="l">To do · '+T.length+'</div>'+T.slice(0,10).map(function(a){return '<a href="app.html#'+a[0]+'">'+esc(a[1])+'</a>'}).join('')+'</div>';
+  /* key figures */
+  var cost=function(k2,w){return at(row('Cost of goods sold')[w],k2)+at(row('Selling & marketing')[w],k2)+at(row('General & admin')[w],k2)};
+  var costM=cost(ci,'a'),costMB=cost(ci,'b');
+  var fund=D.cash.filter(function(c){return c.Category==='Capital / owner funding'}).reduce(function(s,c){return s+(c.Direction==='In'?1:-1)*n(c.Amount)},0);
+  var spent=D.cash.filter(function(c){return c.Direction==='Out'}).reduce(function(s,c){return s+n(c.Amount)},0);
+  var rev=row('Revenue'),net=row('Operating profit (EBITDA)');
+  h+='<div class="dbg">'+
+   k('Costs this month',money(costM),'Budget '+money(costMB)+(costMB?' · '+pct(costM/costMB)+' used':''),'pl',costMB&&costM>costMB)+
+   k('Partner funding',money(fund),'Put in so far · spent '+money(spent),'cash')+
+   k('Cash on hand',money(cash),tbc?'Opening balances pending':Object.keys(C.balances).map(function(x){return x.split(' ')[0]+' '+money(C.balances[x])}).join(' · '),'cash',tbc)+
+   k('Advances to weavers',money(adv),adv?'Paid before quotes':'None outstanding','prod')+
+   k('Sales this month',money(at(rev.a,ci)),'Budget '+money(at(rev.b,ci)),'orders')+
+   k('Profit year to date',money(sumTo(net.a,ci)),'Budget '+money(sumTo(net.b,ci)),'pl')+
+   (D.orders.length?k('Open orders',open.length,money(open.reduce(function(s,o){return s+C.orders[o.ID].net},0))+' value','orders')+k('Customers owe',money(D.orders.reduce(function(s,o){return s+Math.max(0,C.orders[o.ID].balance)},0)),'unpaid balances','customers'):'')+'</div>';
+  /* first batch / weaver lines */
+  if(lines.length){var SS=['Quote requested','Ordered','Weaving','Received'],SC=['#CFC6B5','#A8833F','#8A6F5A','#2F3A2C'],cnt=SS.map(function(s){return lines.filter(function(p){return p.Status===s}).length}),m2=lines.reduce(function(s,p){return s+n(p.SizeM2)},0),quoted=lines.filter(function(p){return n(p.LabourCost)>0}).length;
+    h+='<a class="dbc dbch" href="app.html#prod"><div class="l">Weaver lines · '+lines.length+' pieces · '+f(m2)+' m² · '+quoted+'/'+lines.length+' priced</div><div class="bar">'+cnt.map(function(c,j){return c?'<i style="width:'+(c/lines.length*100)+'%;background:'+SC[j]+'"></i>':''}).join('')+'</div><div class="lg">'+SS.map(function(s,j){return cnt[j]?'<span><b style="background:'+SC[j]+'"></b>'+s+' '+cnt[j]+'</span>':''}).join('')+'</div></a>'}
+  /* where the money went this month */
+  var by={};D.cash.forEach(function(c){if(c.Direction!=='Out'||String(c.Date).slice(0,7)!==m)return;by[c.Category]=(by[c.Category]||0)+n(c.Amount)});var bk=Object.keys(by).sort(function(a,b){return by[b]-by[a]}),mx=bk.length?by[bk[0]]:0;
+  if(bk.length)h+='<a class="dbc dbsp" href="app.html#cash"><div class="l">Money out this month</div>'+bk.map(function(x){return '<div class="sr"><span>'+esc(x)+'</span><i style="width:'+(by[x]/mx*100)+'%"></i><b>'+money(by[x])+'</b></div>'}).join('')+'</a>';
+  /* sales by channel once there are sales */
+  var tot=0,parts=D.lists.channels.map(function(c){var v=sumTo(row(c).a,ci);tot+=v;return v});
+  if(tot)h+='<div class="dbc dbch"><div class="l">Sales by channel · year to date</div><div class="bar">'+parts.map(function(v,j){return '<i style="width:'+(v/tot*100)+'%;background:'+CH[j]+'"></i>'}).join('')+'</div><div class="lg">'+D.lists.channels.map(function(c,j){return '<span><b style="background:'+CH[j]+'"></b>'+esc(c)+' '+money(parts[j])+'</span>'}).join('')+'</div></div>';
+  /* recent activity */
+  var R=[].concat(D.cash.map(function(c){return {t:c.UpdatedAt||c.Date,h:'cash',x:c.ID+' · '+(c.Direction==='In'?'In ':'Out ')+money(c.Amount)+' · '+c.Category}}),D.production.map(function(p){return {t:p.UpdatedAt||p.Date,h:'prod',x:p.ID+' · '+p.Design+' · '+p.Status}}),D.orders.map(function(o){return {t:o.UpdatedAt||o.Date,h:'orders',x:o.ID+' · '+o.Customer+' · '+o.Status}})).sort(function(a,b){return String(b.t).localeCompare(String(a.t))}).slice(0,6);
+  if(R.length)h+='<div class="dbc dbal dbre"><div class="l">Latest entries</div>'+R.map(function(r){return '<a href="app.html#'+r.h+'"><span>'+esc(r.x)+'</span><em>'+esc(String(r.t).slice(0,16))+'</em></a>'}).join('')+'</div>';
+  h+='<div class="dbcap">All amounts in '+esc(S.Currency||'EGP')+' · updated '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})+' · <a href="#" id="dbr">Refresh</a></div>';
   box.innerHTML=h;document.getElementById('dbr').onclick=function(e){e.preventDefault();load(true)};
-  (function(){function bd(k,v,w){var e=document.querySelector('.bd[data-k="'+k+'"]');if(!e)return;e.textContent=v||'';e.classList.toggle('on',!!v);e.classList.toggle('warn',!!w)}bd('orders',open.length?open.length+' open':'');var wn=D.production.filter(function(p){return ['Quote requested','Ordered','Weaving'].indexOf(p.Status)>=0}).length;bd('prod',wn?wn+' active':'');bd('stock',low.length?low.length+' low':'',1);var ow=D.orders.filter(function(o){return C.orders[o.ID].balance>0.5&&o.Status!=='Quote'&&o.Status!=='Cancelled'}).length;bd('customers',ow?ow+' owe':'',1)})();
+  (function(){function bd(k2,v,w){var e=document.querySelector('.bd[data-k="'+k2+'"]');if(!e)return;e.textContent=v||'';e.classList.toggle('on',!!v);e.classList.toggle('warn',!!w)}bd('orders',open.length?open.length+' open':'');var wn=D.production.filter(function(p){return ['Quote requested','Ordered','Weaving'].indexOf(p.Status)>=0&&n(p.SizeM2)>0}).length;bd('prod',wn?wn+' active':'');bd('stock',low.length?low.length+' low':'',1);var ow=D.orders.filter(function(o){return C.orders[o.ID].balance>0.5&&o.Status!=='Quote'&&o.Status!=='Cancelled'}).length;bd('customers',ow?ow+' owe':'',1);bd('cash',nr?nr+' no receipt':'',1)})();
 }
 load();
 })();
