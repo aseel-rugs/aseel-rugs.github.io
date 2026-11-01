@@ -86,10 +86,10 @@ function signIn(msg){
     google.accounts.id.renderButton(document.getElementById('dbg'),{theme:'outline',size:'large',shape:'pill',text:'signin_with'});
     google.accounts.id.prompt();})();
 }
-function load(){
+function load(force){
   var t=tok();if(!t){signIn();return}
   var cd=null;try{cd=localStorage.getItem('aseel_data')}catch(e){}if(cd){try{render(JSON.parse(cd))}catch(e){}}else box.innerHTML='<div class="dbc dbmsg">Loading…</div>';
-  fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({idToken:t,fn:'getData',args:[]})})
+  fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({idToken:t,fn:force?'refresh':'getData',args:[]})})
    .then(function(r){return r.json()})
    .then(function(d){if(!d.ok){if(/sign in|sign-in|No access/i.test(d.error)){try{localStorage.removeItem('aseel_tok')}catch(e){}signIn(d.error)}else box.innerHTML='<div class="dbc dbmsg">'+esc(d.error)+'</div>';return}try{localStorage.setItem('aseel_data',d.result)}catch(e){}render(JSON.parse(d.result))})
    .catch(function(e){box.innerHTML='<div class="dbc dbmsg">Could not reach the app: '+esc(e.message)+'</div>'});
@@ -128,7 +128,7 @@ function render(D){
   var tot=0,parts=D.lists.channels.map(function(c){var v=i<0?0:sumTo(row(c).a,i);tot+=v;return v});
   h+='<div class="dbc dbch"><div class="l">Sales by channel · year to date</div><div class="bar">'+parts.map(function(v,j){return '<i style="width:'+(tot?v/tot*100:0)+'%;background:'+CH[j]+'"></i>'}).join('')+'</div><div class="lg">'+D.lists.channels.map(function(c,j){return '<span><b style="background:'+CH[j]+'"></b>'+esc(c)+' '+money(parts[j])+'</span>'}).join('')+'</div></div>';
   h+='<div class="dbcap">All amounts in '+esc(D.settings&&D.settings.Currency||'EGP')+' · updated '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})+' · <a href="#" id="dbr">Refresh</a></div>';
-  box.innerHTML=h;document.getElementById('dbr').onclick=function(e){e.preventDefault();load()};
+  box.innerHTML=h;document.getElementById('dbr').onclick=function(e){e.preventDefault();load(true)};
 }
 load();
 })();
