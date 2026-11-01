@@ -107,6 +107,13 @@ nav{display:none!important}
 .ptitle{font-family:Marcellus,Georgia,serif;font-size:13px;letter-spacing:.28em;text-transform:uppercase;color:var(--mute);max-width:1100px;margin:0 auto;padding:22px 16px 0}
 main{padding-top:12px}
 @media(max-width:640px){.hback{top:8px;left:8px}}
+.fab{position:fixed;right:18px;bottom:18px;width:56px;height:56px;border-radius:50%;border:0;background:var(--brand);color:#F2ECE0;font-size:30px;line-height:1;box-shadow:0 6px 18px rgba(34,36,31,.3);cursor:pointer;z-index:15}
+.fab:hover{background:#3b4837}
+.qgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.qbtn{text-align:left;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:14px;cursor:pointer;font:inherit;color:var(--ink)}.qbtn:hover{border-color:var(--gold)}.qbtn b{display:block;font-family:Marcellus,Georgia,serif;font-weight:400;font-size:16px}.qbtn span{font-size:12px;color:var(--mute)}
+.alerts{margin-bottom:12px;border-color:var(--gold)}.alerts .l{color:var(--mute);font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}.al{padding:7px 0;border-top:1px solid var(--soft);cursor:pointer;font-size:13px}.al:hover{color:var(--brand2)}
+.att{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.att a{color:var(--brand2)}
+@media(max-width:640px){.qgrid{grid-template-columns:1fr}}
 </style>
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -122,6 +129,7 @@ main{padding-top:12px}
 <main id="main"><div class="empty">Loading…</div></main>
 <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
 <div id="login"><div class="box"><svg class="emb2" viewBox="0 0 133.4 140.0" aria-hidden="true"><use href="#emblem"/></svg><h3>ASEEL</h3><p>Sign in with your Google account to open the business app.</p><div id="gbtn"></div><div id="loginErr"></div></div></div>
+<button class="fab" id="fab" onclick="if(D)quick()" title="Quick add" aria-label="Quick add">+</button>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -155,12 +163,12 @@ function apiCall(fn,args,ok,fail){
     .then(function(d){if(d.ok){ok&&ok(d.result)}else{if(/sign in|sign-in|No access/i.test(d.error)){clearTok();showLogin(d.error)}fail&&fail({message:d.error})}})
     .catch(function(e){fail&&fail({message:'Could not reach the app server: '+e.message})});
 }
-var API={get run(){var h={};var p={withSuccessHandler:function(f){h.s=f;return p},withFailureHandler:function(f){h.f=f;return p}};['getData','saveRecord','deleteRecord'].forEach(function(n){p[n]=function(){apiCall(n,[].slice.call(arguments),h.s,h.f)}});return p}};
+var API={get run(){var h={};var p={withSuccessHandler:function(f){h.s=f;return p},withFailureHandler:function(f){h.f=f;return p}};['getData','saveRecord','deleteRecord','uploadFile'].forEach(function(n){p[n]=function(){apiCall(n,[].slice.call(arguments),h.s,h.f)}});return p}};
 </script>
 <script>
 var D=null, TAB='home', Q={};
 var CH_COLORS=['#2F3A2C','#8A6F5A','#1F4A52'];
-var TABS=[['home','Dashboard'],['orders','Orders & sales'],['prod','Weaver orders'],['stock','Stock'],['cash','Cash & expenses'],['pl','P&L & budget']];
+var TABS=[['home','Dashboard'],['orders','Orders & sales'],['prod','Weaver orders'],['stock','Stock'],['customers','Customers'],['weavers','Weavers'],['cash','Cash & expenses'],['pl','P&L & budget']];
 
 function $(id){return document.getElementById(id)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
@@ -171,10 +179,10 @@ function pct(v){return (n(v)*100).toFixed(1)+'%'}
 function toast(t){var e=$('toast');e.textContent=t;e.style.display='block';setTimeout(function(){e.style.display='none'},2600)}
 function mlabel(m){var p=m.split('-');return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+p[1]-1]+' '+p[0].slice(2)}
 
-function load(){API.run.withSuccessHandler(function(s){D=JSON.parse(s);$('sheetLink').href=D.sheetUrl;render()}).withFailureHandler(function(e){$('main').innerHTML='<div class="card">'+esc(e.message)+'</div>'}).getData()}
+function load(){API.run.withSuccessHandler(function(s){D=JSON.parse(s);$('sheetLink').href=D.sheetUrl;render();if(window.__quick){window.__quick=false;quick()}}).withFailureHandler(function(e){$('main').innerHTML='<div class="card">'+esc(e.message)+'</div>'}).getData()}
 function nav(){var pt=document.getElementById('ptitle');if(pt){var cur=TABS.filter(function(x){return x[0]===TAB})[0];pt.textContent=cur?cur[1]:'';document.title='ASEEL'+(cur?' · '+cur[1]:'')}$('nav').innerHTML=TABS.map(function(t){return '<button class="'+(TAB===t[0]?'on':'')+'" onclick="go(\''+t[0]+'\')">'+t[1]+'</button>'}).join('')}
 function go(t){TAB=t;try{history.replaceState(null,'','#'+t)}catch(e){}render();window.scrollTo(0,0)}
-function render(){nav();if(!D)return;({home:home,orders:orders,prod:prod,stock:stock,cash:cash,pl:pl})[TAB]()}
+function render(){nav();if(!D)return;({home:home,orders:orders,prod:prod,stock:stock,cash:cash,pl:pl,customers:customers,weavers:weavers})[TAB]()}
 
 /* ---------- Dashboard ---------- */
 function curIdx(){var m=D.today.slice(0,7),i=D.calc.months.indexOf(m);return i<0?(m<D.calc.months[0]?-1:35):i}
@@ -189,7 +197,7 @@ function home(){
   var low=C.materials.filter(function(m){return m.low});
   var stockVal=C.materials.reduce(function(s,m){return s+Math.max(0,m.value)},0);
   var ytdA=i<0?0:sumTo(rev.a,i),ytdB=i<0?0:sumTo(rev.b,i);
-  var h='<div class="grid">'+
+  var h=alertBox()+'<div class="grid">'+
     kpi('Sales this month',money(i<0?0:rev.a[i]),'Budget '+money(i<0?0:rev.b[i]))+
     kpi('Sales year to date',money(ytdA),ytdB?('vs budget '+pct(ytdA/ytdB-1)):'No budget yet')+
     kpi('Profit year to date',money(i<0?0:sumTo(net.a,i)),'Budget '+money(i<0?0:sumTo(net.b,i)))+
@@ -235,6 +243,7 @@ var F={
   StockMoves:[['Date','date'],['Code','select:matCodes'],['Type','select:moveTypes'],['Qty','number','Adjust: use minus for a loss'],['UnitCost','number','Purchases only'],['OrderID','select:orderIds'],['ProductionID','select:prodIds'],['Note','text']],
   Cash:[['Date','date'],['Direction','select:dirs'],['Category','select:cats'],['Account','select:accounts'],['Amount','number'],['OrderID','select:orderIds'],['JobID','select:prodIds'],['Description','area']]
 };
+['Orders','Production','StockMoves','Cash'].forEach(function(t){F[t].push(['Attachment','file'])});
 function opts(k){
   if(k==='channels')return D.lists.channels; if(k==='orderStatus')return D.lists.orderStatus; if(k==='prodStatus')return D.lists.prodStatus;
   if(k==='accounts')return D.lists.accounts; if(k==='cats')return Object.keys(D.lists.categories); if(k==='dirs')return ['In','Out'];
@@ -244,18 +253,20 @@ function opts(k){
   if(k==='matCodes')return D.materials.map(function(m){return m.Code+' · '+m.Name});
   return [];
 }
-function lbl(k){return {DeliveryDate:'Delivery date',ProductionID:'Weaver order',JobID:'Weaver order (for weaver payments)',OrderID:'Customer order',SizeM2:'Size (m²)',LabourCost:'Weaver quote',OtherCost:'Transport & other',DoneDate:'Received date',DueDate:'Due from weaver',ReorderLevel:'Reorder level',UnitCost:'Unit cost',Code:'Item'}[k]||k}
+function lbl(k){return {DeliveryDate:'Delivery date',ProductionID:'Weaver order',JobID:'Weaver order (for weaver payments)',OrderID:'Customer order',SizeM2:'Size (m²)',LabourCost:'Weaver quote',OtherCost:'Transport & other',DoneDate:'Received date',DueDate:'Due from weaver',ReorderLevel:'Reorder level',UnitCost:'Unit cost',Code:'Item',Attachment:'Receipt / photo'}[k]||k}
 function form(table,rec,title,extraBtns){
   var fields=F[table],h='<h3>'+title+'</h3><div class="form">';
   fields.forEach(function(fd){
     var k=fd[0],t=fd[1],v=rec[k]==null?'':rec[k],full=t==='area'?' full':'';
     if(table==='Materials'&&k==='Code'){h+='<div><label>Code</label><input id="f_Code" value="'+esc(v)+'" '+(rec.Code?'readonly':'')+' placeholder="e.g. YARN-WOOL-RED"></div>';return}
     h+='<div class="'+full+'"><label>'+lbl(k)+'</label>';
+    if(k==='Attachment'){h+='<div class="att">'+(v?'<a href="'+esc(v)+'" target="_blank" rel="noopener">View file ↗</a>':'')+'<input type="file" id="f_file" accept="image/*,application/pdf" style="width:auto"><input type="hidden" id="f_Attachment" value="'+esc(v)+'"></div></div>';return}
     if(t==='area')h+='<textarea id="f_'+k+'" rows="2">'+esc(v)+'</textarea>';
     else if(t.indexOf('select:')===0){var o=opts(t.slice(7));h+='<select id="f_'+k+'">'+(o[0]===''?'':'<option value=""></option>')+o.map(function(x){var val=String(x).split(' · ')[0];return '<option value="'+esc(val)+'"'+(String(v)===val?' selected':'')+'>'+esc(x||'—')+'</option>'}).join('')+'</select>'}
-    else h+='<input id="f_'+k+'" type="'+(t==='number'?'number" step="any':t)+'" value="'+esc(v)+'" placeholder="'+esc(fd[2]||'')+'">';
+    else h+='<input id="f_'+k+'"'+(dlist(k)?' list="dl_'+k+'" autocomplete="off"'+(k==='Customer'?' onchange="fillPhone()"':''):'')+' type="'+(t==='number'?'number" step="any':t)+'" value="'+esc(v)+'" placeholder="'+esc(fd[2]||'')+'">';
     h+='</div>';
   });
+  ['Customer','Weaver'].forEach(function(k){if(fields.some(function(fd){return fd[0]===k}))h+='<datalist id="dl_'+k+'">'+dlist(k).map(function(x){return '<option value="'+esc(x)+'">'}).join('')+'</datalist>'});
   h+='</div>'+(extraBtns||'')+'<div class="actions">'+(rec.ID||(table==='Materials'&&rec.Code)?'<button class="btn red" onclick="del(\''+table+'\',\''+esc(rec.ID||rec.Code)+'\')">Delete</button>':'')+'<div class="sp"></div><button class="btn ghost" onclick="closeM()">Cancel</button><button class="btn" id="saveBtn" onclick="save(\''+table+'\',\''+esc(rec.ID||'')+'\')">Save</button></div>';
   $('sheet').innerHTML=h;$('modal').classList.add('on');
 }
@@ -266,6 +277,7 @@ function save(table,id,after){
   var orig=(table==='Orders'?D.orders:table==='Production'?D.production:table==='Cash'?D.cash:table==='StockMoves'?D.moves:[]).filter(function(x){return x.ID===id})[0];
   if(orig)Object.keys(orig).forEach(function(k){if(r[k]===undefined)r[k]=orig[k]});
   $('saveBtn').disabled=true;
+  var fi=$('f_file');if(fi&&fi.files&&fi.files[0]){toast('Uploading file…');fileToB64(fi.files[0],function(b64,mime,name){if(!b64){err({message:'Could not read the file'});return}API.run.withSuccessHandler(function(url){fi.value='';$('f_Attachment').value=url;save(table,id,after)}).withFailureHandler(err).uploadFile((r.ID||table)+' '+name,mime,b64)});return}
   API.run.withSuccessHandler(function(newId){
     var pay=$('x_pay');
     if(table==='StockMoves'&&r.Type==='Purchase'&&pay&&pay.checked){
@@ -279,8 +291,8 @@ function err(e){toast(e.message||e);var b=$('saveBtn');if(b)b.disabled=false}
 function del(table,id){if(!confirmDel(id))return;API.run.withSuccessHandler(function(){closeM();toast('Deleted '+id);load()}).withFailureHandler(err).deleteRecord(table,id)}
 var delArm=null;function confirmDel(id){if(delArm===id){delArm=null;return true}delArm=id;toast('Press Delete again to confirm');setTimeout(function(){delArm=null},4000);return false}
 
-function editOrder(id){
-  var o=D.orders.filter(function(x){return x.ID===id})[0]||{Date:D.today,Status:'Confirmed',Qty:1,Channel:D.lists.channels[0]};
+function editOrder(id,pre){
+  var o=D.orders.filter(function(x){return x.ID===id})[0]||Object.assign({Date:D.today,Status:'Confirmed',Qty:1,Channel:D.lists.channels[0]},pre||{});
   var extra='';
   if(id){var c=D.calc.orders[id];extra='<div class="note">Net '+money(c.net)+' · Paid '+money(c.paid)+' · Balance '+money(c.balance)+(c.cost?' · Cost '+money(c.cost)+' · Margin '+pct(c.marginPct):'')+'</div><div class="actions" style="justify-content:flex-start"><button class="btn ghost" onclick="payOrder(\''+id+'\')">+ Record payment</button>'+(!o.ProductionID?'<button class="btn ghost" onclick="prodFromOrder(\''+id+'\')">+ Order from weaver</button>':'')+'<button class="btn ghost" onclick="issueToOrder(\''+id+'\')">+ Use stock / packaging</button>'+'</div>'}
   form('Orders',o,id?'Order '+id:'New order',extra);
@@ -368,8 +380,66 @@ function pl(){
   $('main').innerHTML=h;
 }
 
+/* ---------- Day-to-day: people, quick add, alerts, attachments ---------- */
+function nkey(s){return String(s||'').trim().toLowerCase()}
+function people(kind){
+  var C=D.calc,m={};
+  if(kind==='c'){D.orders.forEach(function(o){var k=nkey(o.Customer);if(!k)return;var p=m[k]||(m[k]={name:String(o.Customer).trim(),phone:'',n:0,net:0,paid:0,bal:0,last:'',ids:[]});
+    if(o.Phone)p.phone=o.Phone;p.ids.push(o.ID);if(o.Status==='Cancelled')return;var c=C.orders[o.ID];p.n++;p.net+=c.net;p.paid+=c.paid;p.bal+=Math.max(0,c.balance);if(String(o.Date)>p.last)p.last=String(o.Date)})}
+  else{D.production.forEach(function(x){var k=nkey(x.Weaver);if(!k)return;var p=m[k]||(m[k]={name:String(x.Weaver).trim(),n:0,open:0,cost:0,paid:0,owed:0,last:'',ids:[]});
+    p.ids.push(x.ID);if(x.Status==='Cancelled')return;var j=C.jobs[x.ID];p.n++;if(x.Status==='Ordered'||x.Status==='Weaving')p.open++;p.cost+=j.total;p.paid+=j.paid;p.owed+=Math.max(0,j.owed);if(String(x.Date)>p.last)p.last=String(x.Date)})}
+  return Object.keys(m).map(function(k){return m[k]}).sort(function(a,b){return a.name<b.name?-1:1});
+}
+function customers(){
+  var list=people('c').filter(function(p){return match(p,'cu')});
+  var h='<div class="bar"><input placeholder="Search…" value="'+esc(Q.cu||'')+'" oninput="Q.cu=this.value;render()"><div class="sp"></div><button class="btn" onclick="editOrder()">+ New order</button></div>';
+  h+=table(['Customer','Phone','Orders','Total','Paid','Owes','Last order'],list.map(function(p){return [esc(p.name),esc(p.phone),p.n,money(p.net),money(p.paid),'<span class="'+(p.bal>0.5?'neg':'')+'">'+money(p.bal)+'</span>',esc(p.last)]}),[0,0,1,1,1,1,0],list.map(function(p){return "personC('"+esc(p.name).replace(/'/g,"\\'")+"')"}));
+  h+='<div class="note">Customers are built from your orders. Type a name once on an order and it appears here and in the order form list.</div>';
+  $('main').innerHTML=h;
+}
+function weavers(){
+  var list=people('w').filter(function(p){return match(p,'we')});
+  var h='<div class="bar"><input placeholder="Search…" value="'+esc(Q.we||'')+'" oninput="Q.we=this.value;render()"><div class="sp"></div><button class="btn" onclick="editProd()">+ New weaver order</button></div>';
+  h+=table(['Weaver','Orders','With them now','Total cost','Paid','Owed','Last order'],list.map(function(p){return [esc(p.name),p.n,p.open,money(p.cost),money(p.paid),'<span class="'+(p.owed>0.5?'neg':'')+'">'+money(p.owed)+'</span>',esc(p.last)]}),[0,1,1,1,1,1,0],list.map(function(p){return "personW('"+esc(p.name).replace(/'/g,"\\'")+"')"}));
+  h+='<div class="note">Weavers are built from your weaver orders.</div>';
+  $('main').innerHTML=h;
+}
+function personC(name){var p=people('c').filter(function(x){return x.name===name})[0];if(!p)return;var C=D.calc;
+  var rows=D.orders.filter(function(o){return p.ids.indexOf(o.ID)>=0}).sort(function(a,b){return a.Date<b.Date?1:-1});
+  var h='<h3>'+esc(p.name)+'</h3><div class="note" style="margin-top:0">'+(p.phone?esc(p.phone)+' · ':'')+p.n+' order(s) · total '+money(p.net)+' · owes <b>'+money(p.bal)+'</b></div>';
+  h+=table(['Order','Date','Design','Status','Net','Balance'],rows.map(function(o){var c=C.orders[o.ID];return [o.ID,o.Date,esc(o.Design),tag(o.Status),money(c.net),money(c.balance)]}),[0,0,0,0,1,1],rows.map(function(o){return "editOrder('"+o.ID+"')"}));
+  h+='<div class="actions"><button class="btn ghost" onclick="closeM()">Close</button><button class="btn" onclick="editOrder(null,{Customer:\''+esc(p.name).replace(/'/g,"\\'")+'\',Phone:\''+esc(p.phone).replace(/'/g,"\\'")+'\'})">+ New order for '+esc(p.name)+'</button></div>';
+  $('sheet').innerHTML=h;$('modal').classList.add('on');}
+function personW(name){var p=people('w').filter(function(x){return x.name===name})[0];if(!p)return;var C=D.calc;
+  var rows=D.production.filter(function(x){return p.ids.indexOf(x.ID)>=0}).sort(function(a,b){return a.Date<b.Date?1:-1});
+  var h='<h3>'+esc(p.name)+'</h3><div class="note" style="margin-top:0">'+p.n+' order(s) · '+p.open+' with them now · owed <b>'+money(p.owed)+'</b></div>';
+  h+=table(['Order no.','Date','Design','Status','Due','Cost','Owed'],rows.map(function(x){var j=C.jobs[x.ID];return [x.ID,x.Date,esc(x.Design),tag(x.Status),esc(x.DueDate||''),money(j.total),money(j.owed)]}),[0,0,0,0,0,1,1],rows.map(function(x){return "editProd('"+x.ID+"')"}));
+  h+='<div class="actions"><button class="btn ghost" onclick="closeM()">Close</button><button class="btn" onclick="form(\'Production\',{Date:D.today,Status:\'Ordered\',Weaver:\''+esc(p.name).replace(/'/g,"\\'")+'\'},\'New weaver order\')">+ New order for '+esc(p.name)+'</button></div>';
+  $('sheet').innerHTML=h;$('modal').classList.add('on');}
+function dlist(k){if(k==='Customer')return people('c').map(function(p){return p.name});if(k==='Weaver')return people('w').map(function(p){return p.name});return null}
+function fillPhone(){var c=$('f_Customer'),ph=$('f_Phone');if(!c||!ph||ph.value)return;var p=people('c').filter(function(x){return nkey(x.name)===nkey(c.value)})[0];if(p&&p.phone)ph.value=p.phone}
+function quick(){
+  var b=function(l,s,fn){return '<button class="qbtn" onclick="'+fn+'"><b>'+l+'</b><span>'+s+'</span></button>'};
+  $('sheet').innerHTML='<h3>Quick add</h3><div class="qgrid">'+b('New order','A customer sale','editOrder()')+b('Payment received','Money in from a customer',"form('Cash',{Date:D.today,Direction:'In',Category:'Customer payment',Account:'Bank'},'Payment received')")+b('Pay a weaver','Money out to a weaver',"form('Cash',{Date:D.today,Direction:'Out',Category:'Weaver payment',Account:'Bank'},'Pay a weaver')")+b('Expense','Any other money out',"form('Cash',{Date:D.today,Direction:'Out',Account:'Bank'},'Expense')")+'</div><div class="actions"><button class="btn ghost" onclick="closeM()">Cancel</button></div>';
+  $('modal').classList.add('on');
+}
+function alerts(){
+  var C=D.calc,t=new Date(D.today),out=[];
+  function days(d){return Math.floor((t-new Date(d))/864e5)}
+  D.production.forEach(function(x){if((x.Status==='Ordered'||x.Status==='Weaving')&&x.DueDate&&x.DueDate<D.today)out.push({tab:'prod',fn:"editProd('"+x.ID+"')",txt:'Weaver order '+x.ID+(x.Weaver?' ('+x.Weaver+')':'')+' is '+days(x.DueDate)+' day(s) late'})});
+  D.orders.forEach(function(o){var c=C.orders[o.ID];if(o.Status==='Quote'||o.Status==='Cancelled'||c.balance<=0.5)return;var d=days(o.DeliveryDate||o.Date);if(d>30)out.push({tab:'orders',fn:"editOrder('"+o.ID+"')",txt:o.Customer+' owes '+money(c.balance)+' on '+o.ID+' ('+d+' days)'})});
+  C.materials.forEach(function(m){if(m.low)out.push({tab:'stock',fn:"editMat('"+m.code+"')",txt:m.name+' is low: '+f(m.onHand,0)+' '+m.unit+' left'})});
+  return out;
+}
+function alertBox(){var a=alerts();if(!a.length)return '';return '<div class="card alerts"><div class="l">Needs attention · '+a.length+'</div>'+a.slice(0,12).map(function(x){return '<div class="al" onclick="'+x.fn+'">'+esc(x.txt)+'</div>'}).join('')+'</div>'}
+function fileToB64(file,cb){
+  if(/^image\//.test(file.type)){var img=new Image(),u=URL.createObjectURL(file);img.onload=function(){var s=Math.min(1,1600/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);cb(c.toDataURL('image/jpeg',0.82).split(',')[1],'image/jpeg',file.name.replace(/\.[^.]+$/,'')+'.jpg')};img.onerror=function(){cb(null)};img.src=u;return}
+  if(file.size>8e6){toast('File too big (max 8 MB)');cb(null);return}
+  var r=new FileReader();r.onload=function(){cb(String(r.result).split(',')[1],file.type||'application/octet-stream',file.name)};r.readAsDataURL(file);
+}
+
 $('modal').addEventListener('click',function(e){if(e.target.id==='modal')closeM()});
-(function(){var h=location.hash.slice(1);if(TABS.some(function(t){return t[0]===h}))TAB=h})();
+(function(){var h=location.hash.slice(1);if(h==='quick'){window.__quick=true;h='home'}if(TABS.some(function(t){return t[0]===h}))TAB=h})();
 nav();startAuth();
 </script>
 </body>
