@@ -114,6 +114,8 @@ main{padding-top:12px}
 .alerts{margin-bottom:12px;border-color:var(--gold)}.alerts .l{color:var(--mute);font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}.al{padding:7px 0;border-top:1px solid var(--soft);cursor:pointer;font-size:13px}.al:hover{color:var(--brand2)}
 .att{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.att a{color:var(--brand2)}
 @media(max-width:640px){.qgrid{grid-template-columns:1fr}}
+.rephead{font-family:Marcellus,Georgia,serif;font-size:22px;margin:4px 0 8px}
+@media print{header,nav,.fab,.noprint,#toast,.ptitle{display:none!important}body{background:#fff}main{padding:0;max-width:none}.card,.tbl{break-inside:avoid}.wrap{overflow:visible}}
 </style>
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -168,7 +170,7 @@ var API={get run(){var h={};var p={withSuccessHandler:function(f){h.s=f;return p
 <script>
 var D=null, TAB='home', Q={};
 var CH_COLORS=['#2F3A2C','#8A6F5A','#1F4A52'];
-var TABS=[['home','Dashboard'],['orders','Orders & sales'],['prod','Weaver orders'],['stock','Stock'],['customers','Customers'],['weavers','Weavers'],['cash','Cash & expenses'],['pl','P&L & budget']];
+var TABS=[['home','Dashboard'],['orders','Orders & sales'],['prod','Weaver orders'],['stock','Stock'],['customers','Customers'],['weavers','Weavers'],['cash','Cash & expenses'],['pl','P&L & budget'],['report','Monthly report'],['forecast','Cash forecast'],['margins','Margins']];
 
 function $(id){return document.getElementById(id)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
@@ -182,7 +184,7 @@ function mlabel(m){var p=m.split('-');return ['Jan','Feb','Mar','Apr','May','Jun
 function load(){API.run.withSuccessHandler(function(s){D=JSON.parse(s);$('sheetLink').href=D.sheetUrl;render();if(window.__quick){window.__quick=false;quick()}}).withFailureHandler(function(e){$('main').innerHTML='<div class="card">'+esc(e.message)+'</div>'}).getData()}
 function nav(){var pt=document.getElementById('ptitle');if(pt){var cur=TABS.filter(function(x){return x[0]===TAB})[0];pt.textContent=cur?cur[1]:'';document.title='ASEEL'+(cur?' · '+cur[1]:'')}$('nav').innerHTML=TABS.map(function(t){return '<button class="'+(TAB===t[0]?'on':'')+'" onclick="go(\''+t[0]+'\')">'+t[1]+'</button>'}).join('')}
 function go(t){TAB=t;try{history.replaceState(null,'','#'+t)}catch(e){}render();window.scrollTo(0,0)}
-function render(){nav();if(!D)return;({home:home,orders:orders,prod:prod,stock:stock,cash:cash,pl:pl,customers:customers,weavers:weavers})[TAB]()}
+function render(){nav();if(!D)return;({home:home,orders:orders,prod:prod,stock:stock,cash:cash,pl:pl,customers:customers,weavers:weavers,report:report,forecast:forecast,margins:margins})[TAB]()}
 
 /* ---------- Dashboard ---------- */
 function curIdx(){var m=D.today.slice(0,7),i=D.calc.months.indexOf(m);return i<0?(m<D.calc.months[0]?-1:35):i}
@@ -380,6 +382,50 @@ function pl(){
   $('main').innerHTML=h;
 }
 
+/* ---------- Reports ---------- */
+function mIdx(){return Math.max(0,curIdx())}
+function plv(l,k,w){var r=plRow(l);if(!r)return 0;var a=w==='b'?r.b:r.a;return a?n(a[k]):0}
+function report(){
+  var C=D.calc,i=Q.rm!=null?+Q.rm:mIdx(),m=C.months[i];
+  var h='<div class="bar noprint"><select onchange="Q.rm=this.value;render()">'+C.months.map(function(x,k){return '<option value="'+k+'"'+(k===i?' selected':'')+'>'+mlabel(x)+'</option>'}).join('')+'</select><div class="sp"></div><button class="btn" onclick="window.print()">Print / save PDF</button></div>';
+  h+='<div class="rep"><div class="rephead">Monthly report · '+mlabel(m)+'</div>';
+  var L=[['Revenue','Sales'],['Cost of goods sold','Cost of goods'],['Gross profit','Gross profit'],['Selling & marketing','Selling & marketing'],['General & admin','General & admin'],['Operating profit (EBITDA)','Operating profit']];
+  function ytd(l,w){var r=plRow(l),a=w==='b'?r.b:r.a;return a?sumTo(a,i):0}
+  function vc(a,b,cost){var d=a-b,good=cost?d<=0:d>=0;return '<td class="n '+(Math.abs(d)<0.5?'':good?'pos':'neg')+'">'+money(d)+'</td>'}
+  h+='<h2>Profit &amp; loss vs budget</h2><div class="wrap"><table class="tbl pl"><tr><th></th><th class="n">Month</th><th class="n">Budget</th><th class="n">Var</th><th class="n">Year to date</th><th class="n">Budget</th><th class="n">Var</th></tr>'+L.map(function(x){var cost=/Cost|Selling|admin/.test(x[0]),a=plv(x[0],i,'a'),b=plv(x[0],i,'b'),ya=ytd(x[0],'a'),yb=ytd(x[0],'b');return '<tr class="'+(/profit/i.test(x[0])?'total':'')+'"><td>'+x[1]+'</td><td class="n">'+money(a)+'</td><td class="n">'+money(b)+'</td>'+vc(a,b,cost)+'<td class="n">'+money(ya)+'</td><td class="n">'+money(yb)+'</td>'+vc(ya,yb,cost)+'</tr>'}).join('')+'</table></div>';
+  var cin=0,cout=0;D.cash.forEach(function(c){if(String(c.Date).slice(0,7)!==m)return;if(c.Direction==='In')cin+=n(c.Amount);else cout+=n(c.Amount)});
+  var tot=Object.keys(C.balances).reduce(function(s,k){return s+C.balances[k]},0);
+  h+='<h2>Cash</h2><div class="grid">'+kpi('Money in this month',money(cin),'')+kpi('Money out this month',money(cout),'')+kpi('Cash on hand now',money(tot),Object.keys(C.balances).map(function(k){return k.split(' ')[0]+' '+money(C.balances[k])}).join(' · '))+'</div>';
+  var del=D.orders.filter(function(o){return o.Status==='Delivered'&&String(o.DeliveryDate||'').slice(0,7)===m});
+  var open=D.orders.filter(function(o){return ['Confirmed','In production','Ready'].indexOf(o.Status)>=0});
+  var owe=D.orders.reduce(function(s,o){return s+Math.max(0,C.orders[o.ID].balance)},0);
+  h+='<h2>Orders</h2><div class="grid">'+kpi('Delivered this month',del.length,money(del.reduce(function(s,o){return s+C.orders[o.ID].net},0))+' sales')+kpi('Open orders',open.length,money(open.reduce(function(s,o){return s+C.orders[o.ID].net},0))+' value')+kpi('Customers owe',money(owe),'')+kpi('Owed to weavers',money(C.weaverOwed),'')+'</div>';
+  if(del.length)h+=table(['Order','Delivered','Customer','Design','Net','Margin'],del.map(function(o){var c=C.orders[o.ID];return [o.ID,o.DeliveryDate,esc(o.Customer),esc(o.Design),money(c.net),c.cost?pct(c.marginPct):'—']}),[0,0,0,0,1,1]);
+  var a=alerts();if(a.length)h+='<h2>Needs attention</h2><div class="card">'+a.map(function(x){return '<div class="al">'+esc(x.txt)+'</div>'}).join('')+'</div>';
+  h+='<div class="note">Prepared '+D.today+'. Amounts in '+esc(D.settings&&D.settings.Currency||'EGP')+'.</div></div>';
+  $('main').innerHTML=h;
+}
+function forecast(){
+  var C=D.calc,i0=mIdx(),N=3,ms=C.months.slice(i0,i0+N),cur=C.months[i0];
+  function slot(d){var x=String(d||'').slice(0,7);if(!x||x<=cur)return 0;var k=ms.indexOf(x);return k<0?-1:k}
+  var rec=[0,0,0],wv=[0,0,0],run=[0,0,0],det=[];
+  D.orders.forEach(function(o){if(['Confirmed','In production','Ready','Delivered'].indexOf(o.Status)<0)return;var b=C.orders[o.ID].balance;if(b<=0.5)return;var k=slot(o.DeliveryDate);if(k>=0)rec[k]+=b});
+  D.production.forEach(function(x){if(x.Status==='Cancelled')return;var ow=C.jobs[x.ID].owed;if(ow<=0.5)return;var k=slot(x.DueDate);if(k>=0)wv[k]+=ow});
+  ms.forEach(function(m,k){var j=i0+k,b=plv('Selling & marketing',j,'b')+plv('General & admin',j,'b');if(k===0)b=Math.max(0,b-plv('Selling & marketing',j,'a')-plv('General & admin',j,'a'));run[k]=b});
+  var open=Object.keys(C.balances).reduce(function(s,k){return s+C.balances[k]},0),rows=[];
+  ms.forEach(function(m,k){var close=open+rec[k]-wv[k]-run[k];rows.push([mlabel(m)+(k===0?' (rest of month)':''),money(open),money(rec[k]),money(wv[k]),money(run[k]),'<b class="'+(close<0?'neg':'')+'">'+money(close)+'</b>']);open=close});
+  var h=table(['Month','Opening cash','Customer payments due','Weaver payments due','Running costs (budget)','Closing cash'],rows,[0,1,1,1,1,1]);
+  h+='<div class="note">Customer payments are expected in the delivery month of each open order (this month if no date or already past). Weaver payments are expected in each weaver order’s due month. Running costs are the budgeted selling and admin costs; for this month only what is left after what you have already spent. New sales not yet ordered are not included.</div>';
+  $('main').innerHTML=h;
+}
+function margins(){
+  var C=D.calc,del=D.orders.filter(function(o){return o.Status==='Delivered'});
+  if(!del.length){$('main').innerHTML='<div class="card empty">No delivered orders yet. Margins appear here once orders are marked Delivered.</div>';return}
+  function grp(key){var m={};del.forEach(function(o){var k=String(o[key]||'—').trim()||'—',c=C.orders[o.ID],j=o.ProductionID&&C.jobs[o.ProductionID],g=m[k]||(m[k]={k:k,n:0,net:0,cost:0,m2:0});g.n++;g.net+=c.net;g.cost+=c.cost||0;g.m2+=j?n(j.sizeM2):0});
+    return Object.keys(m).map(function(k){return m[k]}).sort(function(a,b){return (b.net-b.cost)-(a.net-a.cost)})}
+  function tb(title,rows){return '<h2>'+title+'</h2>'+table(['',"Rugs",'Sales','Cost','Margin','Margin %','m²','Margin / m²'],rows.map(function(g){var mg=g.net-g.cost;return [esc(g.k),g.n,money(g.net),money(g.cost),'<span class="'+(mg<0?'neg':'')+'">'+money(mg)+'</span>',g.net?pct(mg/g.net):'—',g.m2?f(g.m2,1):'—',g.m2?money(mg/g.m2):'—']}),[0,1,1,1,1,1,1,1])}
+  $('main').innerHTML=tb('By design',grp('Design'))+tb('By channel',grp('Channel'))+'<div class="note">Delivered orders only. Cost = weaver order cost plus any stock used on the order. m² comes from the linked weaver order.</div>';
+}
 /* ---------- Day-to-day: people, quick add, alerts, attachments ---------- */
 function nkey(s){return String(s||'').trim().toLowerCase()}
 function people(kind){
