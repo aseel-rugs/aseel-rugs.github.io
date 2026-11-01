@@ -165,7 +165,7 @@ function apiCall(fn,args,ok,fail){
     .then(function(d){if(d.ok){ok&&ok(d.result)}else{if(/sign in|sign-in|No access/i.test(d.error)){clearTok();showLogin(d.error)}fail&&fail({message:d.error})}})
     .catch(function(e){fail&&fail({message:'Could not reach the app server: '+e.message})});
 }
-var API={get run(){var h={};var p={withSuccessHandler:function(f){h.s=f;return p},withFailureHandler:function(f){h.f=f;return p}};['getData','saveRecord','deleteRecord','uploadFile'].forEach(function(n){p[n]=function(){apiCall(n,[].slice.call(arguments),h.s,h.f)}});return p}};
+var API={get run(){var h={};var p={withSuccessHandler:function(f){h.s=f;return p},withFailureHandler:function(f){h.f=f;return p}};['getData','saveRecord','deleteRecord','uploadFile','saveGet','delGet','refresh'].forEach(function(n){p[n]=function(){apiCall(n,[].slice.call(arguments),h.s,h.f)}});return p}};
 </script>
 <script>
 var D=null, TAB='home', Q={};
@@ -181,6 +181,7 @@ function pct(v){return (n(v)*100).toFixed(1)+'%'}
 function toast(t){var e=$('toast');e.textContent=t;e.style.display='block';setTimeout(function(){e.style.display='none'},2600)}
 function mlabel(m){var p=m.split('-');return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+p[1]-1]+' '+p[0].slice(2)}
 
+function setData(s){try{localStorage.setItem('aseel_data',s)}catch(e){}D=JSON.parse(s);$('sheetLink').href=D.sheetUrl}
 function load(){if(!D){var c=null;try{c=localStorage.getItem('aseel_data')}catch(e){}if(c){try{D=JSON.parse(c);$('sheetLink').href=D.sheetUrl;render()}catch(e){D=null}}}API.run.withSuccessHandler(function(s){try{localStorage.setItem('aseel_data',s)}catch(e){}D=JSON.parse(s);$('sheetLink').href=D.sheetUrl;render();if(window.__quick){window.__quick=false;quick()}}).withFailureHandler(function(e){$('main').innerHTML='<div class="card">'+esc(e.message)+'</div>'}).getData()}
 function nav(){var pt=document.getElementById('ptitle');if(pt){var cur=TABS.filter(function(x){return x[0]===TAB})[0];pt.textContent=cur?cur[1]:'';document.title='ASEEL'+(cur?' · '+cur[1]:'')}$('nav').innerHTML=TABS.map(function(t){return '<button class="'+(TAB===t[0]?'on':'')+'" onclick="go(\''+t[0]+'\')">'+t[1]+'</button>'}).join('')}
 function go(t){TAB=t;try{history.replaceState(null,'','#'+t)}catch(e){}render();window.scrollTo(0,0)}
@@ -280,17 +281,17 @@ function save(table,id,after){
   if(orig)Object.keys(orig).forEach(function(k){if(r[k]===undefined)r[k]=orig[k]});
   $('saveBtn').disabled=true;
   var fi=$('f_file');if(fi&&fi.files&&fi.files[0]){toast('Uploading file…');fileToB64(fi.files[0],function(b64,mime,name){if(!b64){err({message:'Could not read the file'});return}API.run.withSuccessHandler(function(url){fi.value='';$('f_Attachment').value=url;save(table,id,after)}).withFailureHandler(err).uploadFile((r.ID||table)+' '+name,mime,b64)});return}
-  API.run.withSuccessHandler(function(newId){
+  API.run.withSuccessHandler(function(res){var o=JSON.parse(res),newId=o.id;setData(o.data);
     var pay=$('x_pay');
     if(table==='StockMoves'&&r.Type==='Purchase'&&pay&&pay.checked){
-      API.run.withSuccessHandler(function(){closeM();toast('Saved purchase + payment');load()}).withFailureHandler(err).saveRecord('Cash',{Date:r.Date,Direction:'Out',Category:'Stock purchase (pieces & packaging)',Account:$('x_acc').value,Amount:n(r.Qty)*n(r.UnitCost),Description:'Stock '+newId+' · '+r.Code+' × '+r.Qty});
+      API.run.withSuccessHandler(function(res){setData(JSON.parse(res).data);closeM();toast('Saved purchase + payment');render()}).withFailureHandler(err).saveGet('Cash',{Date:r.Date,Direction:'Out',Category:'Stock purchase (pieces & packaging)',Account:$('x_acc').value,Amount:n(r.Qty)*n(r.UnitCost),Description:'Stock '+newId+' · '+r.Code+' × '+r.Qty});
       return;
     }
-    closeM();toast('Saved '+newId);load();
-  }).withFailureHandler(err).saveRecord(table,r);
+    closeM();toast('Saved '+newId);render();
+  }).withFailureHandler(err).saveGet(table,r);
 }
 function err(e){toast(e.message||e);var b=$('saveBtn');if(b)b.disabled=false}
-function del(table,id){if(!confirmDel(id))return;API.run.withSuccessHandler(function(){closeM();toast('Deleted '+id);load()}).withFailureHandler(err).deleteRecord(table,id)}
+function del(table,id){if(!confirmDel(id))return;API.run.withSuccessHandler(function(res){setData(res);closeM();toast('Deleted '+id);render()}).withFailureHandler(err).delGet(table,id)}
 var delArm=null;function confirmDel(id){if(delArm===id){delArm=null;return true}delArm=id;toast('Press Delete again to confirm');setTimeout(function(){delArm=null},4000);return false}
 
 function editOrder(id,pre){
