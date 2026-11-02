@@ -253,6 +253,7 @@ function opts(k){
   if(k==='moveTypes')return ['Purchase','Issue','Adjust'];
   if(k==='prodIds')return ['' ].concat(D.production.map(function(p){return p.ID+' · '+p.Design+(p.Weaver?' · '+p.Weaver:'')}));
   if(k==='orderIds')return ['' ].concat(D.orders.map(function(o){return o.ID+' · '+o.Customer}));
+  if(k==='plLines')return plLines();
   if(k==='matCodes')return D.materials.map(function(m){return m.Code+' · '+m.Name});
   return [];
 }
@@ -277,7 +278,7 @@ function closeM(){$('modal').classList.remove('on')}
 function collect(table){var r={};F[table].forEach(function(fd){var e=$('f_'+fd[0]);if(e)r[fd[0]]=e.value});return r}
 function save(table,id,after){
   var r=collect(table);if(id)r.ID=id;
-  var orig=(table==='Orders'?D.orders:table==='Production'?D.production:table==='Cash'?D.cash:table==='StockMoves'?D.moves:[]).filter(function(x){return x.ID===id})[0];
+  var orig=(table==='Orders'?D.orders:table==='Production'?D.production:table==='Cash'?D.cash:table==='StockMoves'?D.moves:table==='Adjustments'?(D.adjustments||[]):[]).filter(function(x){return x.ID===id})[0];
   if(orig)Object.keys(orig).forEach(function(k){if(r[k]===undefined)r[k]=orig[k]});
   $('saveBtn').disabled=true;
   var fi=$('f_file');if(fi&&fi.files&&fi.files[0]){toast('Uploading file…');fileToB64(fi.files[0],function(b64,mime,name){if(!b64){err({message:'Could not read the file'});return}API.run.withSuccessHandler(function(url){fi.value='';$('f_Attachment').value=url;save(table,id,after)}).withFailureHandler(err).uploadFile((r.ID||table)+' '+name,mime,b64)});return}
@@ -359,7 +360,7 @@ function pl(){
   var h='<div class="bar"><select onchange="Q.pv=this.value;render()"><option value="m"'+(view==='m'?' selected':'')+'>Year 1 — monthly</option><option value="y"'+(view==='y'?' selected':'')+'>3 years — by year</option><option value="v"'+(view==='v'?' selected':'')+'>Month vs budget</option></select>';
   if(view==='m')h+='<select onchange="Q.pm=this.value;render()"><option value="a"'+(mode==='a'?' selected':'')+'>Actual</option><option value="b"'+(mode==='b'?' selected':'')+'>Budget</option><option value="d"'+(mode==='d'?' selected':'')+'>Actual − budget</option></select>';
   if(view==='v')h+='<select onchange="Q.pmo=this.value;render()">'+C.months.map(function(m,k){return '<option value="'+k+'"'+(k===i?' selected':'')+'>'+mlabel(m)+'</option>'}).join('')+'</select>';
-  h+='<div class="sp"></div><a class="btn ghost" href="'+D.sheetUrl+'" target="_blank" style="text-decoration:none">Edit budget in sheet ↗</a></div>';
+  h+='<div class="sp"></div><button class="btn ghost" onclick="editAdj()">+ P&amp;L adjustment</button><a class="btn ghost" href="'+D.sheetUrl+'" target="_blank" style="text-decoration:none">Edit budget in sheet ↗</a></div>';
   var rows=C.pl,head,body;
   function val(r,k,which){var arr=which==='b'?r.b:r.a;return arr?n(arr[k]):null}
   function cell(v,r){if(v===null)return '<td class="n">—</td>';return '<td class="n">'+money(v)+'</td>'}
@@ -380,9 +381,15 @@ function pl(){
   h+='<div class="wrap"><table class="tbl pl">'+head+body+'</table></div>';
   var rev=plRow('Revenue'),gp=plRow('Gross profit'),y1=sumTo(rev.a,11),g1=sumTo(gp.a,11);
   h+='<div class="note">Year 1 gross margin: '+(y1?pct(g1/y1):'—')+'. Revenue = delivered orders (net of discount) in the delivery month. COGS = weaver cost of those rugs (quote + extras + packaging) + any ready-stock pieces and packaging used on the order. Stock purchases and weaver payments are not expenses; equipment is shown below the line; capital and owner withdrawals are not in the P&L. Budget lines are in the data sheet → Budget tab (36 months from StartMonth).</div>';
+  h+=adjList();
   $('main').innerHTML=h;
 }
 
+/* ---------- P&L adjustments (no cash) ---------- */
+F.Adjustments=[['Date','date'],['Line','select:plLines'],['Amount','number','+ increases the line, − reduces it'],['Note','area'],['Attachment','file']];
+function plLines(){var c=D.lists.categories;return D.lists.channels.concat(['Cost of goods sold']).concat(Object.keys(c).filter(function(k){return c[k]==='sell'||c[k]==='admin'})).concat(['Other income','Equipment (capex)'])}
+function editAdj(id){var a=(D.adjustments||[]).filter(function(x){return x.ID===id})[0]||{Date:D.today};form('Adjustments',a,id?'P&L adjustment '+id:'P&L adjustment','<div class="note" style="margin-top:10px">Changes the P&L only – no money moves. Use it for costs incurred but not paid yet, depreciation, or to correct a line. A plus amount increases the line (more sales or more cost); a minus amount reduces it. Sales lines are the channel names.</div>')}
+function adjList(){var L=(D.adjustments||[]).slice().sort(function(a,b){return a.Date<b.Date?1:-1});if(!L.length)return '';return '<h2>P&L adjustments</h2>'+table(['No.','Date','P&L line','Amount','Note'],L.map(function(a){return [a.ID,a.Date,esc(a.Line),money(a.Amount),esc(a.Note)]}),[0,0,0,1,0],L.map(function(a){return "editAdj('"+a.ID+"')"}))}
 /* ---------- Designs catalogue ---------- */
 function dlabel(x){return x.Design+' · '+x.Size}
 function designs(){
